@@ -1,0 +1,2 @@
+usr/lib/*/libEGL_amber.so.0*
+usr/share/glvnd/egl_vendor.d/50_amber.json

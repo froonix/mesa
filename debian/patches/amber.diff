@@ -1,0 +1,170 @@
+From acabe7ab4528db94a5afecf1c95adfe57e8bbb54 Mon Sep 17 00:00:00 2001
+From: Adam Jackson <ajax@redhat.com>
+Date: Fri, 30 Apr 2021 14:01:26 -0400
+Subject: [PATCH] meson: Add "amber" option for automatic LTS build
+ configuration
+
+Setting amber to true will disable the gallium and vulkan drivers, and
+changes the default for prefer-iris to false. If glvnd is enabled then
+"amber" is used as the default vendor name (though you can still
+override it). Beyond that no attempt is made to use filenames different
+from main, so you will still need to configure your install paths
+appropriately so things don't collide.
+
+Reviewed-by: Emma Anholt <emma@anholt.net>
+---
+ meson.build                      | 29 ++++++++++++++++++++++++++---
+ meson_options.txt                | 18 +++++++++++++-----
+ src/loader/meson.build           | 12 ++++++++++--
+ src/mesa/drivers/dri/meson.build |  2 +-
+ 4 files changed, 50 insertions(+), 11 deletions(-)
+
+--- a/meson.build
++++ b/meson.build
+@@ -39,6 +39,13 @@ if get_option('layout') != 'mirror'
+   error('`mirror` is the only build directory layout supported')
+ endif
+ 
++amber = get_option('amber')
++if amber
++  package_version_suffix=' Amber'
++else
++  package_version_suffix=''
++endif
++
+ # Arguments for the preprocessor, put these in a separate array from the C and
+ # C++ (cpp in meson terminology) arguments since they need to be added to the
+ # default arguments for both C and C++.
+@@ -46,13 +53,18 @@ pre_args = [
+   '-D__STDC_CONSTANT_MACROS',
+   '-D__STDC_FORMAT_MACROS',
+   '-D__STDC_LIMIT_MACROS',
+-  '-DPACKAGE_VERSION="@0@"'.format(meson.project_version()),
++  '-DPACKAGE_VERSION="@0@@1@"'.format(meson.project_version(), package_version_suffix),
+   '-DPACKAGE_BUGREPORT="https://gitlab.freedesktop.org/mesa/mesa/-/issues"',
+ ]
+ c_args = []
+ cpp_args = []
+ 
+ with_moltenvk_dir = get_option('moltenvk-dir')
++
++if amber
++  pre_args += '-DAMBER'
++endif
++
+ with_vulkan_icd_dir = get_option('vulkan-icd-dir')
+ with_tests = get_option('build-tests')
+ with_aco_tests = get_option('build-aco-tests')
+@@ -199,7 +211,9 @@ with_dri = dri_drivers.length() != 0
+ 
+ gallium_drivers = get_option('gallium-drivers')
+ if gallium_drivers.contains('auto')
+-  if system_has_kms_drm
++  if amber
++    gallium_drivers = []
++  elif system_has_kms_drm
+     # TODO: PPC, Sparc
+     if ['x86', 'x86_64'].contains(host_machine.cpu_family())
+       gallium_drivers = [
+@@ -262,7 +276,9 @@ endif
+ _vulkan_drivers = get_option('vulkan-drivers')
+ if _vulkan_drivers.contains('auto')
+   if system_has_kms_drm
+-    if host_machine.cpu_family().startswith('x86')
++    if amber
++      _vulkan_drivers = []
++    elif host_machine.cpu_family().startswith('x86')
+       _vulkan_drivers = ['amd', 'intel', 'swrast']
+     elif ['arm', 'aarch64'].contains(host_machine.cpu_family())
+       _vulkan_drivers = ['swrast']
+@@ -533,6 +549,13 @@ endif
+ 
+ with_glvnd = get_option('glvnd')
+ glvnd_vendor_name = get_option('glvnd-vendor-name')
++if glvnd_vendor_name == 'auto'
++  if amber
++    glvnd_vendor_name = 'amber'
++  else
++    glvnd_vendor_name = 'mesa'
++  endif
++endif
+ if with_glvnd
+   if with_platform_windows
+     error('glvnd cannot be used on Windows')
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -321,7 +321,7 @@ option(
+ option(
+   'glvnd-vendor-name',
+   type : 'string',
+-  value : 'mesa',
++  value : 'auto',
+   description : 'Vendor name string to use for glvnd libraries'
+ )
+ option(
+@@ -457,14 +457,16 @@ option(
+ )
+ option(
+   'prefer-iris',
+-  type : 'boolean',
+-  value : true,
++  type : 'combo',
++  value : 'auto',
++  choices : ['auto', 'true', 'false'],
+   description : 'Prefer new Intel iris driver over older i965 driver'
+ )
+ option(
+   'prefer-crocus',
+-  type : 'boolean',
+-  value : false,
++  type : 'combo',
++  value : 'auto',
++  choices : ['auto', 'true', 'false'],
+   description : 'Prefer new crocus driver over older i965 driver for gen4-7'
+ )
+ option('egl-lib-suffix',
+@@ -530,3 +532,9 @@ option(
+   value : false,
+   description : 'Build gallium VMware/svga driver with mksGuestStats instrumentation.'
+ )
++option(
++  'amber',
++  type : 'boolean',
++  value : true,
++  description : 'Configure LTS build to coexist with main branch Mesa > 21.2',
++)
+--- a/src/loader/meson.build
++++ b/src/loader/meson.build
+@@ -41,11 +41,19 @@ loader_c_args = [
+   '-DDEFAULT_DRIVER_DIR="@0@"'.format(dri_search_path),
+ ]
+ 
+-if get_option('prefer-iris')
++_prefer_iris = get_option('prefer-iris')
++if _prefer_iris == 'auto'
++  _prefer_iris = amber ? 'false' : 'true'
++endif
++if _prefer_iris == 'true'
+   loader_c_args += ['-DPREFER_IRIS']
+ endif
+ 
+-if get_option('prefer-crocus')
++_prefer_crocus = get_option('prefer-crocus')
++if _prefer_crocus == 'auto'
++  _prefer_crocus = 'false'
++endif
++if _prefer_crocus == 'true'
+   loader_c_args += ['-DPREFER_CROCUS']
+ endif
+ 
+--- a/src/mesa/drivers/dri/meson.build
++++ b/src/mesa/drivers/dri/meson.build
+@@ -51,7 +51,7 @@ endif
+ 
+ if _dri_drivers != []
+   libmesa_dri_drivers = shared_library(
+-    'mesa_dri_drivers',
++    '@0@_dri_drivers'.format(glvnd_vendor_name),
+     [],
+     link_whole : _dri_drivers,
+     link_with : [

@@ -1,0 +1,169 @@
+#!/usr/bin/make -f
+# debian/rules for the Debian mesa package
+# Copyright © 2006 Thierry Reding <thierry@gilfi.de>
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+include /usr/share/dpkg/pkg-info.mk
+
+#DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+#DEB_HOST_ARCH      ?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
+#DEB_HOST_ARCH_OS   ?= $(shell dpkg-architecture -qDEB_HOST_ARCH_OS)
+#DEB_HOST_ARCH_CPU  ?= $(shell dpkg-architecture -qDEB_HOST_ARCH_CPU)
+
+ifeq (,$(filter $(DEB_HOST_ARCH), armhf ppc64el sh3 sh4))
+buildflags = \
+	$(shell DEB_CFLAGS_MAINT_APPEND=-Wall DEB_CXXFLAGS_MAINT_APPEND=-Wall dpkg-buildflags --export=configure)
+else
+  ifneq (,$(filter $(DEB_HOST_ARCH), armhf))
+  # Workaround for a variant of LP: #725126
+  buildflags = \
+	$(shell DEB_CFLAGS_MAINT_APPEND="-Wall -fno-optimize-sibling-calls" DEB_CXXFLAGS_MAINT_APPEND="-Wall -fno-optimize-sibling-calls" dpkg-buildflags --export=configure)
+  else
+    ifneq (,$(filter $(DEB_HOST_ARCH), ppc64el))
+    # Workaround for https://gitlab.freedesktop.org/mesa/mesa/-/issues/5315
+    buildflags = \
+	$(shell DEB_CFLAGS_MAINT_APPEND="-Wall -O2" DEB_CXXFLAGS_MAINT_APPEND="-Wall -O2" dpkg-buildflags --export=configure)
+    else
+    # Workaround for https://gcc.gnu.org/bugzilla/show_bug.cgi?id=83143
+    buildflags = \
+	$(shell DEB_CFLAGS_MAINT_APPEND="-Wall -O1" DEB_CXXFLAGS_MAINT_APPEND="-Wall -O1" dpkg-buildflags --export=configure)
+    endif
+  endif
+endif
+
+DRI_DRIVERS =
+EGL_PLATFORMS = x11
+
+confflags_DRI3 = -Ddri3=disabled
+confflags_OSMESA =  -Dosmesa=false
+confflags_SSE2 = -Dsse2=true
+
+# hurd doesn't do direct rendering
+ifeq ($(DEB_HOST_ARCH_OS), hurd)
+	confflags_DIRECT_RENDERING = -Dglx-direct=false
+else
+	DRI_DRIVERS += r100 r200
+
+	confflags_DIRECT_RENDERING = -Dglx-direct=true
+
+  ifeq ($(DEB_HOST_ARCH_OS), linux)
+	confflags_DRI3 = -Ddri3=enabled
+	DRI_DRIVERS += nouveau
+
+	# Non-Linux ports lack epoll, so wayland isn't ready yet:
+	# https://gitlab.freedesktop.org/wayland/wayland/-/issues/72
+	# hurd also lacks *_CLOEXEC
+	EGL_PLATFORMS += ,wayland
+  endif
+
+  # Build intel drivers on archs where libdrm-intel is installed
+  ifneq (,$(filter $(DEB_HOST_ARCH),amd64 i386 kfreebsd-amd64 kfreebsd-i386 x32))
+	DRI_DRIVERS += i915 i965
+  endif
+endif
+
+ifeq ($(DEB_HOST_ARCH), i386)
+	confflags_SSE2 = -Dsse2=false
+endif
+
+empty:=
+space := $(empty) $(empty)
+comma := ,
+DRI_DRIVERS := $(patsubst %,'%',$(DRI_DRIVERS))
+DRI_DRIVERS_LIST := $(subst $(space),$(comma),$(DRI_DRIVERS))
+
+confflags_EGL = -Dplatforms="$(EGL_PLATFORMS)"
+
+confflags += \
+	-Damber=true \
+	-Dglvnd-vendor-name=amber \
+	-Ddri-drivers="[$(DRI_DRIVERS_LIST)]" \
+	-Ddri-drivers-path=/usr/lib/$(DEB_HOST_MULTIARCH)/dri \
+	-Ddri-search-path='/usr/lib/$(DEB_HOST_MULTIARCH)/dri:\$$$${ORIGIN}/dri:/usr/lib/dri' \
+	-Dvulkan-drivers="" \
+	-Dglvnd=true \
+	-Dshared-glapi=enabled \
+	-Dgallium-xvmc=disabled \
+	-Dgallium-omx=disabled \
+	-Db_ndebug=true \
+	-Dbuild-tests=true \
+	-Dgbm=disabled \
+	-Ddri3=disabled \
+	-Dgles1=disabled \
+	-Dgles2=disabled \
+	-Dosmesa=false \
+	-Dllvm=disabled \
+	$(confflags_DIRECT_RENDERING) \
+	$(confflags_EGL) \
+	$(confflags_SSE2)
+
+override_dh_clean:
+	rm -rf .pc
+	rm -rf build
+	rm -rf configure bin/config.guess bin/config.sub config.h.in
+	rm -rf $$(find -name Makefile.in)
+	rm -rf bin/install-sh bin/ltmain.sh
+	dh_clean
+
+override_dh_auto_configure:
+	$(buildflags) dh_auto_configure -- \
+		$(confflags)
+
+override_dh_auto_install:
+	dh_auto_install
+#	for file in debian/*.in; \
+#	do \
+#		sed -e"s,\$${DEB_HOST_MULTIARCH},$(DEB_HOST_MULTIARCH),g" \
+#			$${file} > $${file%%.in}; \
+#	done
+
+# some tests are expected to fail for now, drop this when upstream has
+# better cross-build testing in place and expected failures fixed
+override_dh_auto_test:
+	-dh_auto_test
+
+allpkg = $(shell dh_listpackages -a)
+
+override_dh_install:
+	# purge .la files
+	find debian/tmp/ -name '*.la' -exec rm '{}' ';'
+
+	# Get rid of some files which aren't installed. Do not
+	# use -f to ensure we notice disappearing files:
+	rm debian/tmp/usr/lib/*/libglapi.so*
+	rm debian/tmp/usr/lib/*/libEGL_amber.so
+	rm debian/tmp/usr/lib/*/libGLX_amber.so
+	rm -r debian/tmp/usr/include/EGL
+	rm -r debian/tmp/usr/include/GL/
+	rm debian/tmp/usr/lib/*/pkgconfig/dri.pc
+
+	# Copy the hardlinked *_dri.so correctly.
+	install -m755 -d debian/libgl1-amber-dri/usr/lib/${DEB_HOST_MULTIARCH}/dri/
+	mv debian/tmp/usr/lib/${DEB_HOST_MULTIARCH}/dri/*_dri.so \
+	   debian/libgl1-amber-dri/usr/lib/${DEB_HOST_MULTIARCH}/dri/
+	mv debian/tmp/usr/share/drirc.d/00-mesa-defaults.conf \
+		debian/tmp/usr/share/drirc.d/00-amber-defaults.conf
+
+	dh_install -a
+
+	# Install bug control and script:
+	set -e; for p in $(allpkg); do \
+		install -d debian/$$p/usr/share/bug/$$p && \
+		install -m 644 debian/local/control debian/$$p/usr/share/bug/$$p && \
+		install -m 755 debian/local/script  debian/$$p/usr/share/bug/$$p; \
+	done
+
+override_dh_makeshlibs:
+	dh_makeshlibs -a -- -c4
+
+%:
+	dh $@ --with quilt \
+		--builddirectory=build/ \
+		--buildsystem=meson
+
+# For maintainer use only, generate a tarball:
+gentarball:
+	git archive --format=tar upstream-unstable --prefix=$(DEB_SOURCE)-$(DEB_VERSION_UPSTREAM)/ \
+		| gzip -9 > ../$(DEB_SOURCE)_$(DEB_VERSION_UPSTREAM).orig.tar.gz
