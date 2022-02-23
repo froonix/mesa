@@ -1,24 +1,42 @@
-From acabe7ab4528db94a5afecf1c95adfe57e8bbb54 Mon Sep 17 00:00:00 2001
+From a7acf7050bab2248edcc4c7636deff8503ba0279 Mon Sep 17 00:00:00 2001
 From: Adam Jackson <ajax@redhat.com>
 Date: Fri, 30 Apr 2021 14:01:26 -0400
 Subject: [PATCH] meson: Add "amber" option for automatic LTS build
  configuration
 
-Setting amber to true will disable the gallium and vulkan drivers, and
-changes the default for prefer-iris to false. If glvnd is enabled then
-"amber" is used as the default vendor name (though you can still
-override it). Beyond that no attempt is made to use filenames different
-from main, so you will still need to configure your install paths
-appropriately so things don't collide.
+Setting amber to true changes these defaults:
+
+- glvnd defaults to enabled
+- the glvnd vendor name is set to "amber"
+- the gallium and vulkan drivers are disabled
+- prefer-iris defaults to false
+- eglQueryString(EGL_VENDOR) returns "Mesa Project (Amber)"
+
+The megadriver for the classic driver set will be installed to a file
+name unique from Mesa main. Beyond that no attempt is made to use
+filenames different from main - particularly not if glvnd is explicitly
+disabled - so you would still need to configure your install paths
+appropriately so things don't collide, if you want them to not collide.
+But if you have that problem, consider that glvnd already solves it.
+
+This has a quiet dependency on glapi and gbm's library API remaining
+stable. gbm you could fix by linking it statically, glapi is a little
+harder. I think the right move for glapi is to use glvnd's gldispatch
+more directly, but that's not public API at the moment.
 
 Reviewed-by: Emma Anholt <emma@anholt.net>
+Reviewed-by: Eric Engestrom <eric@engestrom.ch>
 ---
- meson.build                      | 29 ++++++++++++++++++++++++++---
- meson_options.txt                | 18 +++++++++++++-----
- src/loader/meson.build           | 12 ++++++++++--
+ meson.build                      | 38 ++++++++++++++++++++++++++++----
+ meson_options.txt                | 23 +++++++++++++------
+ src/egl/main/egldefines.h        |  4 ++++
+ src/egl/meson.build              |  2 +-
+ src/loader/meson.build           | 12 ++++++++--
  src/mesa/drivers/dri/meson.build |  2 +-
- 4 files changed, 50 insertions(+), 11 deletions(-)
+ 6 files changed, 66 insertions(+), 15 deletions(-)
 
+diff --git a/meson.build b/meson.build
+index 0aea31260bb..07c77e17a65 100644
 --- a/meson.build
 +++ b/meson.build
 @@ -39,6 +39,13 @@ if get_option('layout') != 'mirror'
@@ -77,9 +95,18 @@ Reviewed-by: Emma Anholt <emma@anholt.net>
        _vulkan_drivers = ['amd', 'intel', 'swrast']
      elif ['arm', 'aarch64'].contains(host_machine.cpu_family())
        _vulkan_drivers = ['swrast']
-@@ -533,6 +549,13 @@ endif
+@@ -531,8 +547,22 @@ if with_glx != 'disabled'
+   endif
+ endif
  
- with_glvnd = get_option('glvnd')
+-with_glvnd = get_option('glvnd')
++_glvnd = get_option('glvnd')
++if _glvnd == 'true' or _glvnd == 'enabled' or (amber and _glvnd == 'auto')
++  with_glvnd = true
++else
++  with_glvnd = false
++endif
++
  glvnd_vendor_name = get_option('glvnd-vendor-name')
 +if glvnd_vendor_name == 'auto'
 +  if amber
@@ -88,12 +115,27 @@ Reviewed-by: Emma Anholt <emma@anholt.net>
 +    glvnd_vendor_name = 'mesa'
 +  endif
 +endif
++
  if with_glvnd
    if with_platform_windows
      error('glvnd cannot be used on Windows')
+diff --git a/meson_options.txt b/meson_options.txt
+index 32c7593ee8e..6889646594f 100644
 --- a/meson_options.txt
 +++ b/meson_options.txt
-@@ -321,7 +321,7 @@ option(
+@@ -302,8 +302,9 @@ option(
+ )
+ option(
+   'glvnd',
+-  type : 'boolean',
+-  value : false,
++  type : 'combo',
++  value : 'auto',
++  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+   description : 'Enable GLVND support.'
+ )
+ option(
+@@ -321,7 +322,7 @@ option(
  option(
    'glvnd-vendor-name',
    type : 'string',
@@ -102,7 +144,7 @@ Reviewed-by: Emma Anholt <emma@anholt.net>
    description : 'Vendor name string to use for glvnd libraries'
  )
  option(
-@@ -457,14 +457,16 @@ option(
+@@ -457,14 +458,16 @@ option(
  )
  option(
    'prefer-iris',
@@ -123,16 +165,47 @@ Reviewed-by: Emma Anholt <emma@anholt.net>
    description : 'Prefer new crocus driver over older i965 driver for gen4-7'
  )
  option('egl-lib-suffix',
-@@ -530,3 +532,9 @@ option(
+@@ -530,3 +533,9 @@ option(
    value : false,
    description : 'Build gallium VMware/svga driver with mksGuestStats instrumentation.'
  )
 +option(
 +  'amber',
 +  type : 'boolean',
-+  value : true,
-+  description : 'Configure LTS build to coexist with main branch Mesa > 21.2',
++  value : false,
++  description : 'Configure LTS build to coexist with Mesa >= 22.0'
 +)
+diff --git a/src/egl/main/egldefines.h b/src/egl/main/egldefines.h
+index c925e0ca553..791f4435439 100644
+--- a/src/egl/main/egldefines.h
++++ b/src/egl/main/egldefines.h
+@@ -46,7 +46,11 @@ extern "C" {
+ #define _EGL_MAX_PBUFFER_WIDTH 4096
+ #define _EGL_MAX_PBUFFER_HEIGHT 4096
+ 
++#ifdef AMBER
++#define _EGL_VENDOR_STRING "Mesa Project (Amber)"
++#else
+ #define _EGL_VENDOR_STRING "Mesa Project"
++#endif
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/src/egl/meson.build b/src/egl/meson.build
+index 65faf607705..b6f7d1cf3d4 100644
+--- a/src/egl/meson.build
++++ b/src/egl/meson.build
+@@ -165,7 +165,7 @@ else
+   files_egl += [g_egldispatchstubs_h, g_egldispatchstubs_c]
+   files_egl += files('main/eglglvnd.c', 'main/egldispatchstubs.c')
+   glvnd_config = configuration_data()
+-  glvnd_config.set('glvnd_vendor_name', get_option('glvnd-vendor-name'))
++  glvnd_config.set('glvnd_vendor_name', glvnd_vendor_name)
+   configure_file(
+     configuration: glvnd_config,
+     input : 'main/50_mesa.json',
+diff --git a/src/loader/meson.build b/src/loader/meson.build
+index 927f4af11f1..15818c070fa 100644
 --- a/src/loader/meson.build
 +++ b/src/loader/meson.build
 @@ -41,11 +41,19 @@ loader_c_args = [
@@ -157,6 +230,8 @@ Reviewed-by: Emma Anholt <emma@anholt.net>
    loader_c_args += ['-DPREFER_CROCUS']
  endif
  
+diff --git a/src/mesa/drivers/dri/meson.build b/src/mesa/drivers/dri/meson.build
+index 239ca962c2a..b4d22a61c3d 100644
 --- a/src/mesa/drivers/dri/meson.build
 +++ b/src/mesa/drivers/dri/meson.build
 @@ -51,7 +51,7 @@ endif
@@ -168,3 +243,6 @@ Reviewed-by: Emma Anholt <emma@anholt.net>
      [],
      link_whole : _dri_drivers,
      link_with : [
+-- 
+GitLab
+

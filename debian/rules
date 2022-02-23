@@ -78,7 +78,6 @@ confflags_EGL = -Dplatforms="$(EGL_PLATFORMS)"
 
 confflags += \
 	-Damber=true \
-	-Dglvnd-vendor-name=amber \
 	-Ddri-drivers="[$(DRI_DRIVERS_LIST)]" \
 	-Ddri-drivers-path=/usr/lib/$(DEB_HOST_MULTIARCH)/dri \
 	-Ddri-search-path='/usr/lib/$(DEB_HOST_MULTIARCH)/dri:\$$$${ORIGIN}/dri:/usr/lib/dri' \
