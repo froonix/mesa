@@ -90,7 +90,7 @@ Conflicts: libgl1-mesa-dri (<< 22.0.0~)
 Replaces: libgl1-mesa-dri (<< 22.0.0~)
 Provides: dri-drivers
 Multi-Arch: same
-Description: free implementation of the OpenGL API -- DRI modules
+Description: free implementation of the OpenGL API -- Amber DRI modules
  This version of Mesa provides GLX and DRI capabilities: it is capable of
  both direct and indirect rendering.  For direct rendering, it can use DRI
  modules from the libgl1-mesa-dri package to accelerate drawing.
