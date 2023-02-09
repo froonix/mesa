@@ -120,31 +120,27 @@ panfrost_sample_pattern(unsigned samples)
 static unsigned
 translate_tex_wrap(enum pipe_tex_wrap w, bool using_nearest)
 {
-        /* Bifrost doesn't support the GL_CLAMP wrap mode, so instead use
-         * CLAMP_TO_EDGE and CLAMP_TO_BORDER. On Midgard, CLAMP is broken for
-         * nearest filtering, so use CLAMP_TO_EDGE in that case. */
+        /* CLAMP is only supported on Midgard, where it is broken for nearest
+         * filtering. Use CLAMP_TO_EDGE in that case.
+         */
 
         switch (w) {
         case PIPE_TEX_WRAP_REPEAT: return MALI_WRAP_MODE_REPEAT;
-        case PIPE_TEX_WRAP_CLAMP:
-                return using_nearest ? MALI_WRAP_MODE_CLAMP_TO_EDGE :
-#if PAN_ARCH <= 5
-                     MALI_WRAP_MODE_CLAMP;
-#else
-                     MALI_WRAP_MODE_CLAMP_TO_BORDER;
-#endif
         case PIPE_TEX_WRAP_CLAMP_TO_EDGE: return MALI_WRAP_MODE_CLAMP_TO_EDGE;
         case PIPE_TEX_WRAP_CLAMP_TO_BORDER: return MALI_WRAP_MODE_CLAMP_TO_BORDER;
         case PIPE_TEX_WRAP_MIRROR_REPEAT: return MALI_WRAP_MODE_MIRRORED_REPEAT;
-        case PIPE_TEX_WRAP_MIRROR_CLAMP:
-                return using_nearest ? MALI_WRAP_MODE_MIRRORED_CLAMP_TO_EDGE :
-#if PAN_ARCH <= 5
-                     MALI_WRAP_MODE_MIRRORED_CLAMP;
-#else
-                     MALI_WRAP_MODE_MIRRORED_CLAMP_TO_BORDER;
-#endif
         case PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE: return MALI_WRAP_MODE_MIRRORED_CLAMP_TO_EDGE;
         case PIPE_TEX_WRAP_MIRROR_CLAMP_TO_BORDER: return MALI_WRAP_MODE_MIRRORED_CLAMP_TO_BORDER;
+
+#if PAN_ARCH <= 5
+        case PIPE_TEX_WRAP_CLAMP:
+                return using_nearest ? MALI_WRAP_MODE_CLAMP_TO_EDGE :
+                                       MALI_WRAP_MODE_CLAMP;
+        case PIPE_TEX_WRAP_MIRROR_CLAMP:
+                return using_nearest ? MALI_WRAP_MODE_MIRRORED_CLAMP_TO_EDGE :
+                                       MALI_WRAP_MODE_MIRRORED_CLAMP;
+#endif
+
         default: unreachable("Invalid wrap");
         }
 }
@@ -1367,6 +1363,12 @@ panfrost_emit_texture_descriptors(struct panfrost_batch *batch,
 
         for (int i = 0; i < ctx->sampler_view_count[stage]; ++i) {
                 struct panfrost_sampler_view *view = ctx->sampler_views[stage][i];
+
+                if (!view) {
+                        memset(&out[i], 0, sizeof(out[i]));
+                        continue;
+                }
+
                 struct pipe_sampler_view *pview = &view->base;
                 struct panfrost_resource *rsrc = pan_resource(pview->texture);
 
@@ -1383,6 +1385,11 @@ panfrost_emit_texture_descriptors(struct panfrost_batch *batch,
 
         for (int i = 0; i < ctx->sampler_view_count[stage]; ++i) {
                 struct panfrost_sampler_view *view = ctx->sampler_views[stage][i];
+
+                if (!view) {
+                        trampolines[i] = 0;
+                        continue;
+                }
 
                 panfrost_update_sampler_view(view, &ctx->base);
 
@@ -1411,8 +1418,11 @@ panfrost_emit_sampler_descriptors(struct panfrost_batch *batch,
                                           SAMPLER);
         struct mali_sampler_packed *out = (struct mali_sampler_packed *) T.cpu;
 
-        for (unsigned i = 0; i < ctx->sampler_count[stage]; ++i)
-                out[i] = ctx->samplers[stage][i]->hw;
+        for (unsigned i = 0; i < ctx->sampler_count[stage]; ++i) {
+                struct panfrost_sampler_state *st = ctx->samplers[stage][i];
+
+                out[i] = st ? st->hw : (struct mali_sampler_packed){0};
+        }
 
         return T.gpu;
 }

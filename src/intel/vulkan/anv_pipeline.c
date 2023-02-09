@@ -233,6 +233,12 @@ anv_shader_compile_to_nir(struct anv_device *device,
     */
    NIR_PASS_V(nir, nir_lower_variable_initializers, ~0);
 
+   const nir_opt_access_options opt_access_options = {
+      .is_vulkan = true,
+      .infer_non_readable = true,
+   };
+   NIR_PASS_V(nir, nir_opt_access, &opt_access_options);
+
    /* Split member structs.  We do this before lower_io_to_temporaries so that
     * it doesn't lower system values to temporaries by accident.
     */
@@ -2201,8 +2207,7 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
    }
 
    const VkPipelineMultisampleStateCreateInfo *ms_info =
-      pCreateInfo->pRasterizationState->rasterizerDiscardEnable ? NULL :
-      pCreateInfo->pMultisampleState;
+      raster_discard ? NULL : pCreateInfo->pMultisampleState;
    if (states & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS) {
       const VkPipelineSampleLocationsStateCreateInfoEXT *sl_info = ms_info ?
          vk_find_struct_const(ms_info, PIPELINE_SAMPLE_LOCATIONS_STATE_CREATE_INFO_EXT) : NULL;
@@ -2232,8 +2237,7 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
    }
 
    if (states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE) {
-      if (!pCreateInfo->pRasterizationState->rasterizerDiscardEnable &&
-          uses_color_att) {
+      if (!raster_discard && uses_color_att) {
          assert(pCreateInfo->pColorBlendState);
          const VkPipelineColorWriteCreateInfoEXT *color_write_info =
             vk_find_struct_const(pCreateInfo->pColorBlendState->pNext,
