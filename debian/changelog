@@ -4,6 +4,7 @@ mesa-amber (21.3.9-1) UNRELEASED; urgency=medium
   * control: Fix libgl1-amber-dri description.
   * rules: Drop i915. (LP: #2006744)
   * amber.diff: Dropped, upstream.
+  * copyright: Updated.
 
  -- Timo Aaltonen <tjaalton@debian.org>  Wed, 16 Mar 2022 11:07:01 +0200
 
