@@ -1,3 +1,9 @@
+mesa (22.3.6-1+deb12u1+fnx1) UNRELEASED; urgency=medium
+
+  * rules: Drop i915. (https://debianforum.de/forum/viewtopic.php?t=188731)
+
+ -- Christian Schrötter <cs@fnx.li>  Wed, 03 Jan 2024 17:51:58 +0100
+
 mesa (22.3.6-1+deb12u1) testing-proposed-updates; urgency=medium
 
   * Upload to testing.
