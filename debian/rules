@@ -91,7 +91,7 @@ else
 
   # Build intel drivers on archs where libdrm-intel is installed
   ifneq (,$(filter $(DEB_HOST_ARCH), amd64 i386 x32))
-	GALLIUM_DRIVERS += crocus i915 iris svga
+	GALLIUM_DRIVERS += crocus iris svga
 	VULKAN_DRIVERS += intel intel_hasvk
 	# svga needs xa state tracker
 	confflags_GALLIUM += -Dgallium-xa=enabled
