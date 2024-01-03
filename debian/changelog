@@ -1,3 +1,10 @@
+mesa-amber (21.3.9-1+fnx1) UNRELEASED; urgency=medium
+
+  * rules: Add i915. (https://debianforum.de/forum/viewtopic.php?t=188731)
+           This reverts commit 324f2467930f6f466e18ae5f71cad3141618de78!
+
+ -- Christian Schrötter <cs@fnx.li>  Wed, 03 Jan 2024 17:52:08 +0100
+
 mesa-amber (21.3.9-1) unstable; urgency=medium
 
   * Team upload.
