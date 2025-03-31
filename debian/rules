@@ -131,7 +131,7 @@ override_dh_install:
 
 	# Get rid of some files which aren't installed. Do not
 	# use -f to ensure we notice disappearing files:
-	rm debian/tmp/usr/lib/*/libglapi.so*
+	rm debian/tmp/usr/lib/*/libglapi.so
 	rm debian/tmp/usr/lib/*/libEGL_amber.so
 	rm debian/tmp/usr/lib/*/libGLX_amber.so
 	rm -r debian/tmp/usr/include/EGL

@@ -7,5 +7,6 @@ mesa-amber (21.3.9-1) unstable; urgency=medium
   * rules: Drop i915. (LP: #2006744)
   * amber.diff: Dropped, upstream.
   * copyright: Updated.
+  * Build libglapi-amber, since mesa dropped the libglapi package.
 
  -- Timo Aaltonen <tjaalton@debian.org>  Thu, 09 Feb 2023 20:24:53 +0200
