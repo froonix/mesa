@@ -1,0 +1,8 @@
+# there is no upstream tarball
+orig-tarball-missing-upstream-signature
+# team-maintained like everything else
+no-human-maintainers
+
+patch-system-but-no-source-readme
+
+
