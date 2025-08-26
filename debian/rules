@@ -37,7 +37,6 @@ DRI_DRIVERS =
 EGL_PLATFORMS = x11
 
 confflags_DRI3 = -Ddri3=disabled
-confflags_OSMESA =  -Dosmesa=false
 confflags_SSE2 = -Dsse2=true
 
 # hurd doesn't do direct rendering
@@ -92,8 +91,10 @@ confflags += \
 	-Ddri3=disabled \
 	-Dgles1=disabled \
 	-Dgles2=disabled \
-	-Dosmesa=false \
+	-Dosmesa=true \
 	-Dllvm=disabled \
+	-Dgallium-drivers=swrast \
+	-Dlibunwind=disabled \
 	$(confflags_DIRECT_RENDERING) \
 	$(confflags_EGL) \
 	$(confflags_SSE2)
@@ -135,8 +136,10 @@ override_dh_install:
 	rm debian/tmp/usr/lib/*/libEGL_amber.so
 	rm debian/tmp/usr/lib/*/libGLX_amber.so
 	rm -r debian/tmp/usr/include/EGL
-	rm -r debian/tmp/usr/include/GL/
+	rm debian/tmp/usr/include/GL/internal/dri_interface.h
 	rm debian/tmp/usr/lib/*/pkgconfig/dri.pc
+	rm debian/tmp/usr/lib/*/dri/kms_swrast_dri.so
+	rm debian/tmp/usr/lib/*/dri/swrast_dri.so
 
 	# Copy the hardlinked *_dri.so correctly.
 	install -m755 -d debian/libgl1-amber-dri/usr/lib/${DEB_HOST_MULTIARCH}/dri/
