@@ -1,3 +1,18 @@
+mesa-amber (1:21.3.9-2+fnx1) UNRELEASED; urgency=medium
+
+  * Rebuild for Debian 13 with custom patches.
+
+ -- Christian Schrötter <cs@fnx.li>  Fri, 27 Mar 2026 21:27:42 +0100
+
+mesa-amber (1:21.3.9-2) UNRELEASED; urgency=medium
+
+  * Build libglapi-amber, since mesa dropped the libglapi package.
+  * Build libosmesa, as mesa dropped it in 25.1, and bump the epoch.
+  * copyright: Updated.
+  * control: Migrate to pkgconf.
+
+ -- Timo Aaltonen <tjaalton@debian.org>  Fri, 08 Aug 2025 10:51:20 +0300
+
 mesa-amber (21.3.9-1+fnx1) UNRELEASED; urgency=medium
 
   * rules: Add i915. (https://debianforum.de/forum/viewtopic.php?t=188731)

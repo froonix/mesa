@@ -127,11 +127,23 @@ Files: include/GL/glcorearb.h
 Copyright: 2013-2017 The Khronos Group Inc.
 License: Khronos
 
-Files: include/GLES/egl.h
-       include/GLES/glplatform.h
-       include/GLES2/gl2platform.h
-       include/GLES3/gl3platform.h
-       include/vulkan/*
+Files:
+	include/CL/cl.h
+	include/CL/cl_ext.h
+	include/CL/cl_ext_intel.h
+	include/CL/cl_icd.h
+	include/CL/cl_platform.h
+	include/CL/cl_version.h
+	include/EGL/egl.h
+	include/EGL/eglext.h
+	include/GLES/egl.h
+	include/GLES/glplatform.h
+	include/GLES2/gl2platform.h
+	include/GLES3/gl3platform.h
+	include/android/*
+	include/vulkan/*
+	src/egl/generate/egl.xml
+	src/mapi/glapi/registry/gl.xml
 Copyright: 2015-2018 The Khronos Group Inc.
 	   2015 The Android Open Source Project
 	   2015-2016 Valve Corporation
@@ -176,6 +188,21 @@ License: BSD-2-clause
 Files: src/gtest/include/* src/gtest/src/*
 Copyright: 2008-2015 Google, Inc.
 License: BSD-3-google
+
+Files: src/imgui/*
+Copyright: 2014-2019 Omar Cornut
+License: MIT
+
+Files: src/imgui/imstb_rectpack.h
+Copyright: 2014-2017 Sean Barrett
+                  2019 Jeremy Jaussaud
+		  2019 Martins Mozeiko
+		  2019 github:IntellectualKitty
+License: MIT or public-domain
+
+Files: src/vulkan/registry/vk.xml
+Copyright: 2015-2021 The Khronos Group Inc.
+License: Apache-2.0 or MIT
 
 Files: debian/*
 Copyright: 2022 Timo Aaltonen <tjaalton@debian.org>
