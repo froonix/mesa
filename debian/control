@@ -108,7 +108,6 @@ Depends:
  ${misc:Depends},
 Pre-Depends: ${misc:Pre-Depends}
 Multi-Arch: same
-Breaks: libglapi-mesa
 Provides: libglapi-mesa
 Replaces: libglapi-mesa
 Description: free implementation of the GL API -- shared library
