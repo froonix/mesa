@@ -48,7 +48,7 @@ Package: libegl-amber0
 Section: libs
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}
-Provides: libegl-vendor
+Provides: libegl-vendor, libegl-mesa0
 Pre-Depends: ${misc:Pre-Depends}
 Multi-Arch: same
 Description: free implementation of the EGL API -- Amber vendor library
@@ -62,7 +62,7 @@ Package: libglx-amber0
 Section: libs
 Architecture: any
 Depends: libgl1-amber-dri, ${misc:Depends}, ${shlibs:Depends}
-Provides: libglx-vendor
+Provides: libglx-vendor, libglx-mesa0
 Pre-Depends: ${misc:Pre-Depends}
 Multi-Arch: same
 Description: free implementation of the OpenGL API -- Amber GLX vendor library
