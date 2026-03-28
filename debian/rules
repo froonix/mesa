@@ -138,8 +138,6 @@ override_dh_install:
 	rm -r debian/tmp/usr/include/EGL
 	rm debian/tmp/usr/include/GL/internal/dri_interface.h
 	rm debian/tmp/usr/lib/*/pkgconfig/dri.pc
-	rm debian/tmp/usr/lib/*/dri/kms_swrast_dri.so
-	rm debian/tmp/usr/lib/*/dri/swrast_dri.so
 
 	# Copy the hardlinked *_dri.so correctly.
 	install -m755 -d debian/libgl1-amber-dri/usr/lib/${DEB_HOST_MULTIARCH}/dri/
